@@ -576,6 +576,8 @@
     const ctx     = canvas.getContext('2d');
     const data    = audioBuffer.getChannelData(0);
     const FFT_SIZE = 2048;
+    const FREQ_DISPLAY_MIN = 1000;
+    const FREQ_DISPLAY_MAX = 5000;
     const HOP      = 512;
     const N_FRAMES = Math.floor((data.length - FFT_SIZE) / HOP);
     canvas.width   = Math.min(N_FRAMES, 1200);
@@ -620,8 +622,11 @@
         let maxMag = 0;
         for (let k = 0; k < mags.length; k++) if (mags[k] > maxMag) maxMag = mags[k];
         if (maxMag === 0) continue;
-        for (let bin = 0; bin < FFT_SIZE; bin++) {
-          const y   = canvas.height - 1 - Math.floor(bin * canvas.height / FFT_SIZE);
+        const binMin = Math.floor(FREQ_DISPLAY_MIN / (audioBuffer.sampleRate / FFT_SIZE));
+        const binMax = Math.floor(FREQ_DISPLAY_MAX / (audioBuffer.sampleRate / FFT_SIZE));
+        const binRange = binMax - binMin;
+        for (let bin = binMin; bin < binMax; bin++) {
+          const y   = canvas.height - 1 - Math.floor((bin - binMin) * canvas.height / binRange);
           const val = Math.pow(mags[bin] / maxMag, 0.4);
           const [r, g, b] = sunsetColor(val);
           const idx = (y * canvas.width + frame) * 4;
