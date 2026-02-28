@@ -541,27 +541,77 @@
     <div class="enigma-progress" id="enigma-dots"></div>
 
     <!-- ENIGMA 1: Analisi Spettrale -->
-    <div class="section-box" id="box-e1">
-      <span class="section-title">[ E-01 // ANALISI SPETTRALE ]</span>
-      <p class="section-desc">
-        MIRAGE ha trasmesso un segnale audio prima di sparire.<br>
-        Analizzate lo spettrogramma del file audio e inserite il codice numerico nascosto nel segnale visivo.
-      </p>
-      <div class="field-group">
-        <label>CODICE SPETTRALE (4 CIFRE)</label>
-        <div class="input-row">
-          <input type="number" id="e1-input" placeholder="0000" min="0" max="9999"/>
-          <button onclick="checkEnigma(1)" id="e1-btn">[ ELABORA ]</button>
-        </div>
-      </div>
-      <div id="e1-msg" class="msg"></div>
-      <div id="e1-result" class="result-reveal">
-        <div class="rl">▶ DECODIFICA COMPLETATA — FRAMMENTO ALPHA</div>
-        <div><span class="rl">FREQUENZA CARRIER:</span> <span class="rv">847.3 MHz</span></div>
-        <div><span class="rl">IDENTITÀ COMPROMESSA:</span> <span class="rv">PHOENIX // SETTORE 7</span></div>
-        <div><span class="rl">FRAMMENTO COORDINATA:</span> <span class="rv">LAT 41°54'N</span></div>
-      </div>
+<div class="section-box" id="box-e1">
+  <span class="section-title">[ E-01 // ANALISI SPETTRALE ]</span>
+  <p class="section-desc">
+    MIRAGE ha trasmesso un segnale audio prima di sparire.<br>
+    Caricate il file intercettato — analizzate il segnale visivo nello spettrogramma.
+  </p>
+
+  <!-- Upload area -->
+  <div id="e1-upload-area" style="
+    border: 1px dashed var(--green-dim);
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  " onclick="document.getElementById('e1-file').click()"
+     ondragover="event.preventDefault(); this.style.borderColor='var(--green)'"
+     ondragleave="this.style.borderColor='var(--green-dim)'"
+     ondrop="handleDrop(event)">
+    <div style="font-size:11px; letter-spacing:3px; color:var(--green-dim); margin-bottom:8px;">
+      CARICA FILE AUDIO
     </div>
+    <div style="font-size:24px; margin-bottom:8px;">📡</div>
+    <div style="font-size:11px; color:var(--green-dark);">
+      TRASCINA IL FILE QUI O CLICCA PER SELEZIONARE
+    </div>
+    <input type="file" id="e1-file" accept=".wav,.mp3,.ogg" style="display:none" onchange="loadAudio(this.files[0])"/>
+  </div>
+
+  <!-- Canvas spettrogramma -->
+  <div style="position:relative; margin-bottom:16px; display:none;" id="e1-canvas-wrap">
+    <div style="font-size:10px; letter-spacing:3px; color:var(--green-dim); margin-bottom:8px;">
+      ▶ SPETTROGRAMMA — ANALISI IN CORSO
+    </div>
+    <canvas id="e1-canvas" style="
+      width: 100%;
+      height: 200px;
+      border: 1px solid var(--green-dark);
+      display: block;
+      image-rendering: pixelated;
+    "></canvas>
+    <!-- Etichette frequenze -->
+    <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--green-dark); margin-top:4px;">
+      <span>0 Hz</span>
+      <span>2000 Hz</span>
+      <span>4000 Hz</span>
+      <span>6000 Hz</span>
+      <span>8000+ Hz</span>
+    </div>
+    <div style="font-size:10px; color:var(--green-dim); margin-top:8px; letter-spacing:1px;" id="e1-progress">
+      ELABORAZIONE: 0%
+    </div>
+  </div>
+
+  <!-- Input codice -->
+  <div class="field-group">
+    <label>CODICE SPETTRALE (4 CIFRE)</label>
+    <div class="input-row">
+      <input type="number" id="e1-input" placeholder="0000" min="0" max="9999"/>
+      <button onclick="checkEnigma(1)" id="e1-btn">[ ELABORA ]</button>
+    </div>
+  </div>
+
+  <div id="e1-msg" class="msg"></div>
+  <div id="e1-result" class="result-reveal">
+    <div class="rl">▶ DECODIFICA COMPLETATA — FRAMMENTO ALPHA</div>
+    <div><span class="rl">FREQUENZA CARRIER:</span> <span class="rv">847.3 MHz</span></div>
+    <div><span class="rl">IDENTITÀ COMPROMESSA:</span> <span class="rv">PHOENIX // SETTORE 7</span></div>
+    <div><span class="rl">FRAMMENTO COORDINATA:</span> <span class="rv">LAT 41°54'N</span></div>
+  </div>
+</div>
 
     <!-- ENIGMA 2: Triangolazione -->
     <div class="section-box" id="box-e2">
@@ -1123,6 +1173,157 @@
     $('gm-total-enigmas').textContent = '0 / 10';
     alert('Partita resettata. Le squadre possono riaccedere.');
   };
+
+  // ── SPETTROGRAMMA ─────────────────────────────────────────────────────────────
+
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('e1-upload-area').style.borderColor = 'var(--green-dim)';
+  const file = event.dataTransfer.files[0];
+  if (file) loadAudio(file);
+}
+
+async function loadAudio(file) {
+  if (!file) return;
+
+  const wrap = document.getElementById('e1-canvas-wrap');
+  const progress = document.getElementById('e1-progress');
+  const uploadArea = document.getElementById('e1-upload-area');
+
+  // Mostra canvas e aggiorna upload area
+  wrap.style.display = 'block';
+  uploadArea.innerHTML = `
+    <div style="font-size:11px; letter-spacing:3px; color:var(--green);">✓ FILE CARICATO</div>
+    <div style="font-size:11px; color:var(--green-dim); margin-top:4px;">${file.name}</div>
+  `;
+  uploadArea.style.cursor = 'default';
+  uploadArea.onclick = null;
+  progress.textContent = 'ELABORAZIONE: 0%';
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+    renderSpectrogram(audioBuffer, progress);
+  } catch(err) {
+    document.getElementById('e1-msg').className = 'msg error show';
+    document.getElementById('e1-msg').textContent = '✗ ERRORE LETTURA FILE — VERIFICARE IL FORMATO';
+  }
+}
+
+function renderSpectrogram(audioBuffer, progressEl) {
+  const canvas  = document.getElementById('e1-canvas');
+  const ctx     = canvas.getContext('2d');
+  const data    = audioBuffer.getChannelData(0);
+  const sr      = audioBuffer.sampleRate;
+
+  const FFT_SIZE    = 2048;
+  const HOP         = 512;
+  const N_FRAMES    = Math.floor((data.length - FFT_SIZE) / HOP);
+
+  // Imposta dimensioni canvas reali
+  canvas.width  = Math.min(N_FRAMES, 1200);
+  canvas.height = FFT_SIZE / 2;
+
+  const imageData = ctx.createImageData(canvas.width, canvas.height);
+  const pixels    = imageData.data;
+
+  // Funzione FFT semplificata (DFT su finestra di Hann)
+  function computeMagnitudes(frame) {
+    const mags = new Float32Array(FFT_SIZE / 2);
+    for (let k = 0; k < FFT_SIZE / 2; k++) {
+      let re = 0, im = 0;
+      for (let n = 0; n < FFT_SIZE; n++) {
+        const hann  = 0.5 * (1 - Math.cos(2 * Math.PI * n / (FFT_SIZE - 1)));
+        const angle = 2 * Math.PI * k * n / FFT_SIZE;
+        re += frame[n] * hann * Math.cos(angle);
+        im -= frame[n] * hann * Math.sin(angle);
+      }
+      mags[k] = Math.sqrt(re * re + im * im);
+    }
+    return mags;
+  }
+
+  // Per file lunghi uso FFT veloce approssimata
+  function computeMagnitudesFast(frame) {
+    const mags = new Float32Array(FFT_SIZE / 2);
+    const step = Math.max(1, Math.floor(FFT_SIZE / 256));
+    for (let k = 0; k < FFT_SIZE / 2; k++) {
+      let re = 0, im = 0;
+      for (let n = 0; n < FFT_SIZE; n += step) {
+        const hann  = 0.5 * (1 - Math.cos(2 * Math.PI * n / (FFT_SIZE - 1)));
+        const angle = 2 * Math.PI * k * n / FFT_SIZE;
+        re += frame[n] * hann * Math.cos(angle);
+        im -= frame[n] * hann * Math.sin(angle);
+      }
+      mags[k] = Math.sqrt(re * re + im * im);
+    }
+    return mags;
+  }
+
+  // Colormap "Sunset" simile a Sonic Visualiser
+  function sunsetColor(val) {
+    // val: 0.0 → 1.0
+    if (val < 0.25) {
+      // nero → blu scuro
+      return [0, 0, Math.floor(val * 4 * 128)];
+    } else if (val < 0.5) {
+      const t = (val - 0.25) * 4;
+      return [Math.floor(t * 180), 0, Math.floor(128 + t * 127)];
+    } else if (val < 0.75) {
+      const t = (val - 0.5) * 4;
+      return [180 + Math.floor(t * 75), Math.floor(t * 100), 255 - Math.floor(t * 200)];
+    } else {
+      const t = (val - 0.75) * 4;
+      return [255, 100 + Math.floor(t * 155), Math.floor(t * 50)];
+    }
+  }
+
+  let frame = 0;
+  const totalFrames = canvas.width;
+  const frameStep = Math.floor(N_FRAMES / totalFrames);
+
+  function processChunk() {
+    const CHUNK = 20;
+    for (let i = 0; i < CHUNK && frame < totalFrames; i++, frame++) {
+      const offset = frame * frameStep * HOP;
+      const segment = data.slice(offset, offset + FFT_SIZE);
+      if (segment.length < FFT_SIZE) break;
+
+      const mags = computeMagnitudesFast(Array.from(segment));
+
+      // Trova max per normalizzare
+      let maxMag = 0;
+      for (let k = 0; k < mags.length; k++) if (mags[k] > maxMag) maxMag = mags[k];
+      if (maxMag === 0) continue;
+
+      for (let bin = 0; bin < FFT_SIZE / 2; bin++) {
+        const y    = canvas.height - 1 - Math.floor(bin * canvas.height / (FFT_SIZE / 2));
+        const val  = Math.pow(mags[bin] / maxMag, 0.4); // gamma correction
+        const [r, g, b] = sunsetColor(val);
+        const idx  = (y * canvas.width + frame) * 4;
+        pixels[idx]     = r;
+        pixels[idx + 1] = g;
+        pixels[idx + 2] = b;
+        pixels[idx + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    const pct = Math.floor((frame / totalFrames) * 100);
+    progressEl.textContent = `ELABORAZIONE: ${pct}%`;
+
+    if (frame < totalFrames) {
+      requestAnimationFrame(processChunk);
+    } else {
+      progressEl.textContent = '▶ ANALISI COMPLETATA — ESAMINARE LO SPETTROGRAMMA';
+      progressEl.style.color = 'var(--green)';
+    }
+  }
+
+  requestAnimationFrame(processChunk);
+}
 </script>
 
 </body>
